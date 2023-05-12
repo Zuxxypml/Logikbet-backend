@@ -93,7 +93,7 @@ app.get("/today", async (req, res) => {
           </tbody>
         </table>
       `;
-      console.log(tableData);
+      // console.log(tableData);
       res.status(200).json({ tableHTML, tableData });
     })
     .catch((error) => {
