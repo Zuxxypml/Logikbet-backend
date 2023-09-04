@@ -19,7 +19,8 @@ app.use(morgan("common"));
 app.use(bodyParser.json({ limit: "30mb", extended: true }));
 app.use(bodyParser.urlencoded({ limit: "30mb", extended: true }));
 
-const url = "https://www.zulubet.com/"; // URL of the website with the table(s)
+const url =
+  "https://www.stats24.com/Matches/TodayMatchesList?sportId=1&date=09%2F04%2F2023&countryName=Nigeria&countryCode=NGA&minOdd=0&deviceType=mobile&filter=0&sortingVal=3&probabilityRange=0&marketId=0&pageIndex=0"; // URL of the website with the table(s)
 
 app.get("/today", async (req, res) => {
   axios
@@ -28,73 +29,46 @@ app.get("/today", async (req, res) => {
       const html = response.data;
       const $ = cheerio.load(html);
 
-      // Add your scraping logic here
-      const tableData = [];
-      $(".content_table1 tbody tr").each((index, element) => {
-        const rowData = $(element)
-          .find("td")
-          .map((index, element) => $(element).text())
-          .get();
-        // console.log(rowData);
-        if (rowData.length > 0 && rowData[0].startsWith("mf")) {
-          const indicesToRemove = [3, 4, 5, 6, 7, 8];
+      const scrapedData = [];
 
-          // Remove elements based on indices
-          indicesToRemove.reverse().forEach((index) => {
-            rowData.splice(index, 1);
+      $(".sts_cont_list_sec").each((index, element) => {
+        const leagueName = $(element).find(".sts_cont_list_head").text().trim();
+        const headLabels = [];
+        $(element)
+          .find(".sts_cont_list_row_thead > div")
+          .each((i, headElement) => {
+            headLabels.push($(headElement).text().trim());
           });
-          // Remove duplicate elements within the row
-          const uniqueRowData = [...new Set(rowData)];
 
-          // Extract date and time from the first element
-          const parts = uniqueRowData[0].split("; ");
-          uniqueRowData[0] = parts[0].split("'")[1];
-          // console.log(rowData);
+        $(element)
+          .find(".sts_cont_list_row_tbody")
+          .each((i, tbodyElement) => {
+            const rowData = {};
+            $(tbodyElement)
+              .find("> div")
+              .each((j, tdElement) => {
+                rowData[headLabels[j]] = $(tdElement).text().trim();
+              });
 
-          // Push the row data as an object
-          tableData.push({
-            date: uniqueRowData[0],
-            match: uniqueRowData[1],
-            outcomePredictions: uniqueRowData[2].split("%").filter(Boolean),
-            predictionTip: uniqueRowData[3],
-            result: uniqueRowData[9],
+            // Extract "Matches" value from .sts_cont_list_matches_inr
+            const matchesInr = $(tbodyElement).find(
+              ".sts_cont_list_matches_inr a"
+            );
+            if (matchesInr.length > 0) {
+              rowData["Matches"] = matchesInr.attr("aria-label").trim();
+            }
+
+            // Include league name as a property of each match
+            rowData["leagueName"] = leagueName;
+
+            // Push the match data as an individual object
+            scrapedData.push(rowData);
           });
-        }
       });
 
-      // Generate HTML table
-      const tableHTML = `<style>
-    th,td {
-      text-align: center;
-    }
-  </style>
-        <table>
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Match</th>
-              <th>Outcome Predictions</th>
-              <th>Result</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${tableData
-              .map(
-                (row) => `
-                <tr>
-                  <td>${row.date}</td>
-                  <td>${row.match}</td>
-                  <td>${row.outcomePredictions}</td>
-                  <td>${row.result}</td>
-                </tr>
-              `
-              )
-              .join("")}
-          </tbody>
-        </table>
-      `;
-      // console.log(tableData);
-      res.status(200).json({ tableHTML, tableData });
+      // console.log(scrapedData);
+      const tableHTML = [];
+      res.status(200).json({ scrapedData });
     })
     .catch((error) => {
       res.status(500).json({ error: "Error occurred while scraping data" });
