@@ -19,8 +19,17 @@ app.use(morgan("common"));
 app.use(bodyParser.json({ limit: "30mb", extended: true }));
 app.use(bodyParser.urlencoded({ limit: "30mb", extended: true }));
 
-const url =
-  "https://www.stats24.com/Matches/TodayMatchesList?sportId=1&date=09%2F04%2F2023&countryName=Nigeria&countryCode=NGA&minOdd=0&deviceType=mobile&filter=0&sortingVal=3&probabilityRange=0&marketId=0&pageIndex=0"; // URL of the website with the table(s)
+function getTodayDateParameter() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0"); // Months are zero-based
+  const day = String(today.getDate()).padStart(2, "0");
+
+  return `${month}%2F${day}%2F${year}`;
+}
+const todayDateParameter = getTodayDateParameter();
+
+const url = `https://www.stats24.com/Matches/TodayMatchesList?sportId=1&date=${todayDateParameter}&countryName=Nigeria&countryCode=NGA&minOdd=0&deviceType=mobile&filter=0&sortingVal=3&probabilityRange=0&marketId=0&pageIndex=0`; // URL of the website with the table(s)
 
 app.get("/today", async (req, res) => {
   axios
