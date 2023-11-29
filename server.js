@@ -83,6 +83,67 @@ app.get("/today", async (req, res) => {
       res.status(500).json({ error: "Error occurred while scraping data" });
     });
 });
+app.get("/yesterday", async (req, res) => {
+  // Calculate date parameter for yesterday
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yearYesterday = yesterday.getFullYear();
+  const monthYesterday = String(yesterday.getMonth() + 1).padStart(2, "0");
+  const dayYesterday = String(yesterday.getDate()).padStart(2, "0");
+  const yesterdayDateParameter = `${monthYesterday}%2F${dayYesterday}%2F${yearYesterday}`;
+
+  // Construct URL for yesterday
+  const yesterdayUrl = `https://www.stats24.com/Matches/TodayMatchesList?sportId=1&date=${yesterdayDateParameter}&countryName=Nigeria&countryCode=NGA&minOdd=0&deviceType=mobile&filter=0&sortingVal=3&probabilityRange=0&marketId=0&pageIndex=0`;
+
+  axios
+    .get(yesterdayUrl)
+    .then((response) => {
+      const html = response.data;
+      const $ = cheerio.load(html);
+
+      const scrapedData = [];
+
+      $(".sts_cont_list_sec").each((index, element) => {
+        const leagueName = $(element).find(".sts_cont_list_head").text().trim();
+        const headLabels = [];
+        $(element)
+          .find(".sts_cont_list_row_thead > div")
+          .each((i, headElement) => {
+            headLabels.push($(headElement).text().trim());
+          });
+
+        $(element)
+          .find(".sts_cont_list_row_tbody")
+          .each((i, tbodyElement) => {
+            const rowData = {};
+            $(tbodyElement)
+              .find("> div")
+              .each((j, tdElement) => {
+                rowData[headLabels[j]] = $(tdElement).text().trim();
+              });
+
+            // Extract "Matches" value from .sts_cont_list_matches_inr
+            const matchesInr = $(tbodyElement).find(
+              ".sts_cont_list_matches_inr a"
+            );
+            if (matchesInr.length > 0) {
+              rowData["Matches"] = matchesInr.attr("aria-label").trim();
+            }
+
+            // Include league name as a property of each match
+            rowData["leagueName"] = leagueName;
+
+            // Push the match data as an individual object
+            scrapedData.push(rowData);
+          });
+      });
+
+      res.status(200).json({ scrapedData });
+    })
+    .catch((error) => {
+      res.status(500).json({ error: "Error occurred while scraping data" });
+    });
+});
 
 const PORT = 8080;
 
